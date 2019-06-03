@@ -34,22 +34,24 @@ class csvInterface():
         self.header = list(self.model.keys())
 
     def evaluate_headers(self, dataset: pd.DataFrame):
-        '''
+        """
         Checks if we have the correct headers loaded
         :param dataset: Target Dataset
         :return:
-        '''
+        """
+
         for header in dataset.columns:
             if header not in self.header:
                 raise Exception('Column name {0} not in regex model.'.format(header))
         return
 
     def evaluate_dataframe(self, dataset: pd.DataFrame):
-        '''
+        """
         Evaluates a given regex model to a target dataset
         :param dataset: Target Dataset
         :return:
-        '''
+        """
+
         self.evaluate_headers(dataset=dataset)
 
         # Per column evaluation
@@ -58,32 +60,35 @@ class csvInterface():
 
         return dataset
 
-    # def evaluate_row(self, model: dict, row: list, row_idx: int):
-    #     '''
-    #     Evaluates a single row with a given regex model
-    #     :param model:
-    #     :param row:
-    #     :param row_idx:
-    #     :return:
-    #     '''
-    #
-    #     header = list(model.keys())
-    #
-    #     for idx, item in enumerate(row):
-    #         pattern = model[header[idx]]
-    #         if not pattern.match(str(item)):
-    #             raise Exception('Pattern mismatch at row: {0}, column: {1}'.format(row_idx, header[idx]))
+    @staticmethod
+    def evaluate_row(model: dict, row: list, row_idx: int):
+        """
+        Evaluates a single row with a given regex model
+        :param model:
+        :param row:
+        :param row_idx:
+        :return:
+        """
 
-    def evaluate_column(self, model: dict, dataset: pd.DataFrame, column: str):
-        '''
+        header = list(model.keys())
+
+        for idx, item in enumerate(row):
+            pattern = model[header[idx]]
+            if not pattern.match(str(item)):
+                raise Exception('Pattern mismatch at row: {0}, column: {1}'.format(row_idx, header[idx]))
+
+    @staticmethod
+    def evaluate_column(model: dict, dataset: pd.DataFrame, column: str):
+        """
         Evaluates a dataset's with a given model
+        :param model: Target model for evaluation
         :param dataset: Target Dataset
         :param column: Target column name
         :return:
-        '''
+        """
         try:
             pattern = model[column]
-        except Exception as ex:
+        except Exception:
             raise Exception('Column name {0} not in regex model.'.format(column))
 
         for idx, item in enumerate(dataset[column]):
@@ -100,75 +105,8 @@ class csvInterface():
 
         if evaluate:
             self.evaluate_dataframe(dataset)
-            print('Dataset Evaluation Passed')
-
         return dataset
 
-
-class outlierDetection():
-
-    def __init__(self, dataset: pd.DataFrame):
-        self.dataset = dataset
-
-    def generate_time_aggregations(self, aggregation_column: str):
-        '''
-        Generate the lists of sums for quarter, hour, day and week
-        :return:
-        '''
-        if aggregation_column not in self.dataset.columns:
-            raise Exception('Aggregation column name not in loaded dataset')
-
-        if type(self.dataset[aggregation_column]) != pd.DatetimeIndex:
-            raise Exception('Dataset DateTime column must be a DatetimeIndex type.')
-
-        quart_sum = [0]
-        hour_sum = [0]
-        day_sum = [0]
-        week_sum = [0]
-
-        start = self.dataset['request_date'][0]
-        quart, hour, day, week = (start.minute // 15, start.hour, start.weekday(), start.day // 7)
-
-        for date in self.dataset['request_date']:
-
-            # Quarts
-            if date.minute // 15 == quart:
-                quart_sum[-1] += 1
-            else:
-                quart_sum.append(1)
-                quart = date.minute // 15
-
-            # Hours
-            if date.hour == hour:
-                hour_sum[-1] += 1
-            else:
-                hour_sum.append(1)
-                hour = date.hour
-            # Days
-            if date.day == day:
-                day_sum[-1] += 1
-            else:
-                day_sum.append(1)
-                day = date.day
-
-            # Weeks
-            if date.day // 7 == week:
-                week_sum[-1] += 1
-
-            else:
-                week_sum.append(1)
-                week = day // 7
-
-        return quart_sum, hour_sum, day_sum, week_sum
-
-    def z_detect_outliers(self, values: list, threshold: int):
-        '''
-        Generates the positions of the values that have a z index higher than a given threshold
-        :param threshold: Allowed Threshold
-        :return: outlier positions
-        '''
-        z = np.abs(stats.zscore(values))
-        return np.where(z > threshold)
 
 
 
@@ -177,5 +115,3 @@ class outlierDetection():
 #
 # cI.csv_to_dataframe(source=Path('/Users/noresources/Pycharm_projects/justbeatit/data/routes.csv'), separator='	',
 #                     evaluate=True)
-
-
