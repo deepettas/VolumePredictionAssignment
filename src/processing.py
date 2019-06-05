@@ -122,3 +122,13 @@ class dataProc():
         """
         z = np.abs(stats.zscore(values))
         return np.where(z > threshold)
+
+
+
+class mapTranslator():
+
+    def __init__(self, dataset: pd.DataFrame):
+        pass
+
+    def import_osm(self, ):
+        pass

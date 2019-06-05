@@ -2,8 +2,15 @@ import unittest
 from pathlib import Path
 import pandas as pd
 from src.processing import dataProc
-BAD_CSV_PATH = Path('/Users/noresources/Pycharm_projects/justbeatit/data/routes.csv')
-CSV_PATH = Path('/Users/noresources/Pycharm_projects/justbeatit/data/routes.csv')
+import os, sys
+
+module_path = os.path.abspath(os.path.join('..'))
+if module_path not in sys.path:
+    sys.path.append(module_path)
+
+
+BAD_CSV_PATH = Path(module_path+ '/data/raw/routes.csv')
+CSV_PATH = Path(module_path + '/data/raw/routes.csv')
 
 
 
