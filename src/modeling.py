@@ -22,6 +22,7 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
+
 # class volumePredictor():
 #
 #     def __init__(self):
@@ -167,10 +168,10 @@ class lstmModel():
         self.model = None
         self.timestamp_range = None
         self.dataset = None
-
+        self.n_features = None
         self.n_hours = n_hours
 
-    def train(self, dataset: pd.DataFrame, evaluate: bool,  epochs= 100, batch_size =16):
+    def train(self, dataset: pd.DataFrame, evaluate: bool, epochs=100, batch_size=16):
         """
         Trains the model based on the dataset
         :param dataset: target dataset that is loaded in the model
@@ -187,18 +188,26 @@ class lstmModel():
         self.model = self.create_network(train_X_shape=train_X.shape)
 
         # fit network
-        history = self.model.fit(train_X, train_y, epochs=epochs, batch_size=batch_size, validation_data=(test_X, test_y),
+        history = self.model.fit(train_X, train_y, epochs=epochs, batch_size=batch_size,
+                                 validation_data=(test_X, test_y),
                                  verbose=2,
                                  shuffle=False)
         if evaluate:
             self.evaluate_results(test_X, test_y)
 
-
     def generate_prediction(self, input_data: pd.DataFrame):
+        """
+        Generates a prediction on a given dataset
+        :param input_data:
+        :return:
+        """
+        if self.n_features == None:
+            Warning('The dataset given does not fit the model\'s input shape. Trying to retrain.')
+            self.train(dataset=input_data, evaluate=True)
+
         if self.n_features != len(input_data.columns):
             Warning('The dataset given does not fit the model\'s input shape. Trying to retrain.')
-            self.n_features = len(input_data.columns)
-            self.train( dataset= input_data, evaluate=True)
+            self.train(dataset=input_data, evaluate=True)
 
         reframed = self.prep_dataset_many_to_one(input_data)
 
@@ -206,18 +215,23 @@ class lstmModel():
         return self.evaluate_results(test_X, test_y)
 
     def evaluate_results(self, test_X, test_y):
-
+        """
+        Evaluates the results on a given test dataset
+        :param test_X: Test input
+        :param test_y: Expected output
+        :return: Predictions, Ground_Truth
+        """
         # # make a prediction
         yhat = self.model.predict(test_X)
-        test_X = test_X.reshape((test_X.shape[0], self.n_hours *  self.n_features))
+        test_X = test_X.reshape((test_X.shape[0], self.n_hours * self.n_features))
         # invert scaling for forecast
         print(test_X.shape, test_X)
-        inv_yhat = np.concatenate((yhat, test_X[:, -( self.n_features-1):]), axis=1)
+        inv_yhat = np.concatenate((yhat, test_X[:, -(self.n_features - 1):]), axis=1)
         inv_yhat = self.scaler.inverse_transform(inv_yhat)
         inv_yhat = inv_yhat[:, 0]
         # invert scaling for actual
         test_y = test_y.reshape((len(test_y), 1))
-        inv_y = np.concatenate((test_y, test_X[:, -( self.n_features-1):]), axis=1)
+        inv_y = np.concatenate((test_y, test_X[:, -(self.n_features - 1):]), axis=1)
         inv_y = self.scaler.inverse_transform(inv_y)
         inv_y = inv_y[:, 0]
         # calculate RMSE
@@ -256,10 +270,15 @@ class lstmModel():
         train_X, train_y = self.reshape_to_3D(train)
         test_X, test_y = self.reshape_to_3D(test)
 
-
         return train_X, train_y, test_X, test_y
 
     def reshape_to_3D(self, data):
+        """
+        Reshapes the data that are given serialised into a 3D shape in order to be able to be fed into the
+        model. 1st dimention is the iterations of the data, 2nd is the hour window. 3rd are the features.
+        :param data: serialised data
+        :return: reshaped data
+        """
         # split into input and outputs
         n_obs = self.n_hours * self.n_features
         data_X, data_y = data[:, :n_obs], data[:, - self.n_features]
@@ -278,7 +297,6 @@ class lstmModel():
         if type(dataset) != pd.DataFrame:
             raise Exception('Dataset not loaded. Please run train() first.')
 
-
         # load dataset
         values = dataset.values
 
@@ -289,14 +307,6 @@ class lstmModel():
         scaled = self.scaler.fit_transform(values)
         # frame as supervised learning
         reframed = self.series_to_supervised(scaled, lag_input=self.n_hours, n_out=1)
-
-
-        #
-        #
-        # to_be_dropped = [i for i in range(values.shape[1], values.shape[1] * 2)]
-        # to_be_dropped.remove(label_column_index)
-        # # drop columns we don't want to predict
-        # reframed.drop(reframed.columns[to_be_dropped], axis=1, inplace=True)
 
         return reframed
 
@@ -332,7 +342,6 @@ class lstmModel():
         if dropnan:
             agg.dropna(inplace=True)
         return agg
-
 
 
 class visualizationModule():
