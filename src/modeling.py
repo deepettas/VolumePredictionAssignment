@@ -17,28 +17,25 @@ import itertools
 from sklearn import preprocessing
 from sklearn.metrics import mean_squared_error
 import pandas as pd
-# Standard plotly imports
-
 
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
-from src.processing import dataProc
 
-class volumePredictor():
-
-    def __init__(self):
-        self.model = None
-        self.dataset = None
-
-    def fetch_dataset(self, filepath: str):
-        """
-        Fetches a compiled dataset in pickle form.
-        :param filepath: Relative Path to the dataset.
-        :return:
-        """
-        self.dataset = pd.read_pickle(module_path + filepath)
-
+# class volumePredictor():
+#
+#     def __init__(self):
+#         self.model = None
+#         self.dataset = None
+#
+#     def fetch_dataset(self, filepath: str):
+#         """
+#         Fetches a compiled dataset in pickle form.
+#         :param filepath: Relative Path to the dataset.
+#         :return:
+#         """
+#         self.dataset = pd.read_pickle(module_path + filepath)
+#
 
 
 class sarimaModel():
@@ -165,16 +162,15 @@ class sarimaModel():
 
 class lstmModel():
 
-    def __init__(self):
+    def __init__(self, n_hours=1):
 
         self.model = None
         self.timestamp_range = None
         self.dataset = None
 
-        self.n_hours = 12
-        self.n_features = 4
+        self.n_hours = n_hours
 
-    def train(self, dataset: pd.DataFrame):
+    def train(self, dataset: pd.DataFrame, evaluate: bool,  epochs= 100, batch_size =16):
         """
         Trains the model based on the dataset
         :param dataset: target dataset that is loaded in the model
@@ -182,23 +178,34 @@ class lstmModel():
         """
         self.timestamp_range = (pd.Timestamp(dataset.index.values[0]), pd.Timestamp(dataset.index.values[-1]))
         self.dataset = dataset
-
+        self.n_features = len(dataset.columns)
         # Extract the correct month to train from
-
-        reframed = self.prep_dataset_many_to_one()
+        reframed = self.prep_dataset_many_to_one(dataset)
 
         train_X, train_y, test_X, test_y = self.split_test_train(reframed=reframed, train_percentage=0.9)
 
         self.model = self.create_network(train_X_shape=train_X.shape)
 
         # fit network
-        history = self.model.fit(train_X, train_y, epochs=100, batch_size=72, validation_data=(test_X, test_y),
+        history = self.model.fit(train_X, train_y, epochs=epochs, batch_size=batch_size, validation_data=(test_X, test_y),
                                  verbose=2,
                                  shuffle=False)
+        if evaluate:
+            self.evaluate_results(test_X, test_y)
 
-        return self.evaluate_results(history, test_X, test_y)
 
-    def evaluate_results(self, results, test_X, test_y):
+    def generate_prediction(self, input_data: pd.DataFrame):
+        if self.n_features != len(input_data.columns):
+            Warning('The dataset given does not fit the model\'s input shape. Trying to retrain.')
+            self.n_features = len(input_data.columns)
+            self.train( dataset= input_data, evaluate=True)
+
+        reframed = self.prep_dataset_many_to_one(input_data)
+
+        test_X, test_y = self.reshape_to_3D(reframed.values)
+        return self.evaluate_results(test_X, test_y)
+
+    def evaluate_results(self, test_X, test_y):
 
         # # make a prediction
         yhat = self.model.predict(test_X)
@@ -216,24 +223,7 @@ class lstmModel():
         # calculate RMSE
         rmse = math.sqrt(mean_squared_error(inv_y, inv_yhat))
         print('Test RMSE: %.3f' % rmse)
-        # # make a prediction
-        # yhat = self.model.predict(test_X)
-        # test_X = test_X.reshape((test_X.shape[0], test_X.shape[2]))
-        # # invert scaling for forecast
-        # inv_yhat = np.concatenate((yhat, test_X[:, 1:]), axis=1)
-        # print(test_X.shape, test_y.shape, inv_yhat.shape)
-        #
-        # inv_yhat = self.scaler.inverse_transform(inv_yhat)
-        # inv_yhat = inv_yhat[:, 0]
-        # # invert scaling for actual
-        # test_y = test_y.reshape((len(test_y), 1))
-        # inv_y = np.concatenate((test_y, test_X[:, 1:]), axis=1)
-        # inv_y = self.scaler.inverse_transform(inv_y)
-        # inv_y = inv_y[:, 0]
-        # # calculate RMSE
-        # rmse = math.sqrt(mean_squared_error(inv_y, inv_yhat))
-        # print('Test RMSE: %.3f' % rmse)
-        # return results
+        return inv_yhat, inv_y
 
     def create_network(self, train_X_shape):
         """
@@ -245,36 +235,39 @@ class lstmModel():
         # design network
         model = Sequential()
         model.add(LSTM(50, input_shape=(train_X_shape[1], train_X_shape[2])))
-        model.add(Dense(1))
+
+        model.add(Dense(1, activation='relu'))
         model.compile(loss='mae', optimizer='adam')
         return model
 
     def split_test_train(self, reframed, train_percentage=0.8):
         """
         Splits the reframed dataset into the test and train section with a given percentage
-        :param reframed:
-        :param percentage:
+        :param reframed: The reshaped 3D dataset
+        :param percentage: The percentage cut for train and test
         :return:
         """
-        # split into train and test sets
-
         # split into train and test sets
         values = reframed.values
         n_train_hours = math.floor(train_percentage * len(values))
         train = values[:n_train_hours, :]
         test = values[n_train_hours:, :]
-        # split into input and outputs
-        n_obs = self.n_hours * self.n_features
-        train_X, train_y = train[:, :n_obs], train[:, - self.n_features]
-        test_X, test_y = test[:, :n_obs], test[:, - self.n_features]
-        print(train_X.shape, len(train_X), train_y.shape)
-        # reshape input to be 3D [samples, timesteps, features]
-        train_X = train_X.reshape((train_X.shape[0], self.n_hours, self.n_features))
-        test_X = test_X.reshape((test_X.shape[0], self.n_hours, self.n_features))
-        print(train_X.shape, train_y.shape, test_X.shape, test_y.shape)
+
+        train_X, train_y = self.reshape_to_3D(train)
+        test_X, test_y = self.reshape_to_3D(test)
+
+
         return train_X, train_y, test_X, test_y
 
-    def prep_dataset_many_to_one(self):
+    def reshape_to_3D(self, data):
+        # split into input and outputs
+        n_obs = self.n_hours * self.n_features
+        data_X, data_y = data[:, :n_obs], data[:, - self.n_features]
+        # reshape input to be 3D [samples, timesteps, features]
+        data_X = data_X.reshape((data_X.shape[0], self.n_hours, self.n_features))
+        return data_X, data_y
+
+    def prep_dataset_many_to_one(self, dataset):
         """
         Transforms the dataset in a many-to-one shape in order to be fed to the LSTM.
         :param dataset: Target Dataset
@@ -282,12 +275,12 @@ class lstmModel():
         :param label_column_index: Index of the label column
         :return: reframed dataset in the form: var1(t-1)	var2(t-1)	var3(t-1)	var4(t-1)	var1(t)
         """
-        if type(self.dataset) != pd.DataFrame:
+        if type(dataset) != pd.DataFrame:
             raise Exception('Dataset not loaded. Please run train() first.')
 
 
         # load dataset
-        values = self.dataset.values
+        values = dataset.values
 
         # ensure all data is float
         values = values.astype('float32')
@@ -339,24 +332,6 @@ class lstmModel():
         if dropnan:
             agg.dropna(inplace=True)
         return agg
-
-
-
-
-DATASET_PATH = module_path + "/notebook/dt_agg1hour.h5"
-
-
-lstmodel = lstmModel()
-
-start_date = '2015-11-10'
-end_date = '2015-11-25'
-
-dataset = pd.read_pickle(
-    DATASET_PATH)
-dataset = dataset[start_date:end_date]
-
-lstmodel.train(dataset=dataProc.create_features(dataset= dataset))
-
 
 
 

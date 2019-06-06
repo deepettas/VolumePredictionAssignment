@@ -52,7 +52,7 @@ class TestLstmModel(unittest.TestCase):
         self.dataset = dataset[self.start_date:self.end_date]
 
     def test_train(self):
-       pass
+        self.lstmodel.train(dataset=self.dataset, evaluate=True)
 
-
-
+    def test_predict(self):
+        y_pred, y = self.lstmodel.generate_prediction(input_data=self.dataset)

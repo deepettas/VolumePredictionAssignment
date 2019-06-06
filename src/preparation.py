@@ -1,8 +1,7 @@
 import re
 from pathlib import Path
+
 import pandas as pd
-import numpy as np
-from scipy import stats
 
 
 class csvInterface():
@@ -106,12 +105,3 @@ class csvInterface():
         if evaluate:
             self.evaluate_dataframe(dataset)
         return dataset
-
-
-
-
-
-# cI = csvInterface()
-#
-# cI.csv_to_dataframe(source=Path('/Users/noresources/Pycharm_projects/justbeatit/data/routes.csv'), separator='	',
-#                     evaluate=True)
