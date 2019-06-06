@@ -1,72 +1,55 @@
-from src.preparation import csvInterface
-from src.processing import dataProc
-
-import matplotlib as mpl
-from matplotlib import pylab as plt
-import matplotlib.dates as mdates
-import seaborn as sns
-import tensorflow as tf
-import tensorflow_probability as tfp
 import collections
-from tensorflow_probability import distributions as tfd
-from tensorflow_probability import sts
+import math
+import os
+import sys
+
 import numpy as np
-import matplotlib as mpl
-import matplotlib.dates as mdates
 import seaborn as sns
 import statsmodels.api as sm
+from keras.layers import Dense
+from keras.layers import LSTM
+from keras.models import Sequential
+from matplotlib import pylab as plt
 
-import tensorflow as tf
-import tensorflow_probability as tfp
-import os,sys
 sns.set_context("notebook", font_scale=1.)
 sns.set_style("whitegrid")
 import itertools
-
+from sklearn import preprocessing
+from sklearn.metrics import mean_squared_error
 import pandas as pd
+# Standard plotly imports
+
+
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
-
+from src.processing import dataProc
 
 class volumePredictor():
 
     def __init__(self):
-
         self.model = None
         self.dataset = None
 
-    def fetch_dataset(self, filepath:str):
+    def fetch_dataset(self, filepath: str):
         """
         Fetches a compiled dataset in pickle form.
         :param filepath: Relative Path to the dataset.
         :return:
         """
-        self.dataset =  pd.read_pickle( module_path + filepath)
-
-
-        pass
-
-
-    def update_model(self):
-        pass
-
-    def visualize_results(self):
-        pass
+        self.dataset = pd.read_pickle(module_path + filepath)
 
 
 
 class sarimaModel():
 
-    def __init__(self, timedelta = 24):
+    def __init__(self, ):
 
         self.model = None
         self.timestamp_range = None
         self.dataset = None
-        self.timedelta = timedelta
 
-
-    def train(self, dataset):
+    def train(self, dataset, timedelta):
         """
         Trains the model based on the dataset
         :param dataset: target dataset that is loaded in the model
@@ -76,20 +59,18 @@ class sarimaModel():
 
         self.dataset = dataset
 
-        opt_AIC = self.optimize_AIC()
+        opt_AIC = self.optimize_AIC(timedelta=timedelta)
 
         mod = sm.tsa.statespace.SARIMAX(self.dataset,
                                         order=(opt_AIC[0][0], opt_AIC[0][1], opt_AIC[0][2]),
-                                        seasonal_order=(opt_AIC[0][0], opt_AIC[1][1], opt_AIC[1][2], self.timedelta),
+                                        seasonal_order=(opt_AIC[0][0], opt_AIC[1][1], opt_AIC[1][2], timedelta),
                                         enforce_stationarity=False,
                                         enforce_invertibility=False)
         self.model = mod.fit()
 
-        self.evaluate_results(visualize= True)
+        self.evaluate_results(visualize=True)
 
-
-
-    def optimize_AIC(self):
+    def optimize_AIC(self, timedelta):
         """
         Optimizes the Seasonality, trend and noise parameters for the SARIMA model
         :param dataset: target dataset
@@ -98,12 +79,9 @@ class sarimaModel():
         if type(self.dataset) != pd.DataFrame:
             raise Exception('Dataset not loaded. Please run train() first.')
 
-
-
-
         p = d = q = range(0, 2)
         pdq = list(itertools.product(p, d, q))
-        seasonal_pdq = [(x[0], x[1], x[2], self.timedelta) for x in list(itertools.product(p, d, q))]
+        seasonal_pdq = [(x[0], x[1], x[2], timedelta) for x in list(itertools.product(p, d, q))]
         opt_AIC = []
         min_AIC = sys.maxsize
         for param in pdq:
@@ -127,7 +105,7 @@ class sarimaModel():
         print('SARIMA{}x{}12 - AIC:{}'.format(opt_AIC[0], opt_AIC[1], opt_AIC[2]))
         return opt_AIC
 
-    def evaluate_results(self, visualize:bool):
+    def evaluate_results(self, visualize: bool):
         """
         Evaluates the prediction results of the model
         :param visualize: Boolean visualization option
@@ -139,10 +117,7 @@ class sarimaModel():
             self.model.plot_diagnostics(figsize=(16, 8))
             plt.show()
 
-
-
-
-    def perform_prediction(self, start_date:str, visualize:bool):
+    def perform_prediction(self, start_date: str, visualize: bool):
         """
         Performs the prediction of given a starting date that is within the range of the trained model.
         :param start_date: Starting date of the prediction
@@ -150,15 +125,12 @@ class sarimaModel():
         :return:
         """
 
-
         if self.model == None:
             raise Exception('Model: {0} not trained, please perform a .train() first.'.format(self.__name__))
 
         if pd.Timestamp(start_date) < self.timestamp_range[0] or pd.Timestamp(start_date) >= self.timestamp_range[1]:
             raise Exception('Given start date is not within the range of the trained model.\n'
                             'Please give a range between {0} and {1}, or retrain'.format(*self.timestamp_range))
-
-
 
         pred = self.model.get_prediction(start=pd.to_datetime(start_date), dynamic=False)
 
@@ -190,6 +162,200 @@ class sarimaModel():
         plt.legend()
         plt.show()
 
+
+class lstmModel():
+
+    def __init__(self):
+
+        self.model = None
+        self.timestamp_range = None
+        self.dataset = None
+
+        self.n_hours = 12
+        self.n_features = 4
+
+    def train(self, dataset: pd.DataFrame):
+        """
+        Trains the model based on the dataset
+        :param dataset: target dataset that is loaded in the model
+        :return:
+        """
+        self.timestamp_range = (pd.Timestamp(dataset.index.values[0]), pd.Timestamp(dataset.index.values[-1]))
+        self.dataset = dataset
+
+        # Extract the correct month to train from
+
+        reframed = self.prep_dataset_many_to_one()
+
+        train_X, train_y, test_X, test_y = self.split_test_train(reframed=reframed, train_percentage=0.9)
+
+        self.model = self.create_network(train_X_shape=train_X.shape)
+
+        # fit network
+        history = self.model.fit(train_X, train_y, epochs=100, batch_size=72, validation_data=(test_X, test_y),
+                                 verbose=2,
+                                 shuffle=False)
+
+        return self.evaluate_results(history, test_X, test_y)
+
+    def evaluate_results(self, results, test_X, test_y):
+
+        # # make a prediction
+        yhat = self.model.predict(test_X)
+        test_X = test_X.reshape((test_X.shape[0], self.n_hours *  self.n_features))
+        # invert scaling for forecast
+        print(test_X.shape, test_X)
+        inv_yhat = np.concatenate((yhat, test_X[:, -( self.n_features-1):]), axis=1)
+        inv_yhat = self.scaler.inverse_transform(inv_yhat)
+        inv_yhat = inv_yhat[:, 0]
+        # invert scaling for actual
+        test_y = test_y.reshape((len(test_y), 1))
+        inv_y = np.concatenate((test_y, test_X[:, -( self.n_features-1):]), axis=1)
+        inv_y = self.scaler.inverse_transform(inv_y)
+        inv_y = inv_y[:, 0]
+        # calculate RMSE
+        rmse = math.sqrt(mean_squared_error(inv_y, inv_yhat))
+        print('Test RMSE: %.3f' % rmse)
+        # # make a prediction
+        # yhat = self.model.predict(test_X)
+        # test_X = test_X.reshape((test_X.shape[0], test_X.shape[2]))
+        # # invert scaling for forecast
+        # inv_yhat = np.concatenate((yhat, test_X[:, 1:]), axis=1)
+        # print(test_X.shape, test_y.shape, inv_yhat.shape)
+        #
+        # inv_yhat = self.scaler.inverse_transform(inv_yhat)
+        # inv_yhat = inv_yhat[:, 0]
+        # # invert scaling for actual
+        # test_y = test_y.reshape((len(test_y), 1))
+        # inv_y = np.concatenate((test_y, test_X[:, 1:]), axis=1)
+        # inv_y = self.scaler.inverse_transform(inv_y)
+        # inv_y = inv_y[:, 0]
+        # # calculate RMSE
+        # rmse = math.sqrt(mean_squared_error(inv_y, inv_yhat))
+        # print('Test RMSE: %.3f' % rmse)
+        # return results
+
+    def create_network(self, train_X_shape):
+        """
+        Create a network given the input's shape
+        :param train_X_shape: The shape of the given input
+        :return: the model's structure
+        """
+
+        # design network
+        model = Sequential()
+        model.add(LSTM(50, input_shape=(train_X_shape[1], train_X_shape[2])))
+        model.add(Dense(1))
+        model.compile(loss='mae', optimizer='adam')
+        return model
+
+    def split_test_train(self, reframed, train_percentage=0.8):
+        """
+        Splits the reframed dataset into the test and train section with a given percentage
+        :param reframed:
+        :param percentage:
+        :return:
+        """
+        # split into train and test sets
+
+        # split into train and test sets
+        values = reframed.values
+        n_train_hours = math.floor(train_percentage * len(values))
+        train = values[:n_train_hours, :]
+        test = values[n_train_hours:, :]
+        # split into input and outputs
+        n_obs = self.n_hours * self.n_features
+        train_X, train_y = train[:, :n_obs], train[:, - self.n_features]
+        test_X, test_y = test[:, :n_obs], test[:, - self.n_features]
+        print(train_X.shape, len(train_X), train_y.shape)
+        # reshape input to be 3D [samples, timesteps, features]
+        train_X = train_X.reshape((train_X.shape[0], self.n_hours, self.n_features))
+        test_X = test_X.reshape((test_X.shape[0], self.n_hours, self.n_features))
+        print(train_X.shape, train_y.shape, test_X.shape, test_y.shape)
+        return train_X, train_y, test_X, test_y
+
+    def prep_dataset_many_to_one(self):
+        """
+        Transforms the dataset in a many-to-one shape in order to be fed to the LSTM.
+        :param dataset: Target Dataset
+        :parm lag_input: Number of lag observations as input (X).
+        :param label_column_index: Index of the label column
+        :return: reframed dataset in the form: var1(t-1)	var2(t-1)	var3(t-1)	var4(t-1)	var1(t)
+        """
+        if type(self.dataset) != pd.DataFrame:
+            raise Exception('Dataset not loaded. Please run train() first.')
+
+
+        # load dataset
+        values = self.dataset.values
+
+        # ensure all data is float
+        values = values.astype('float32')
+        # normalize features
+        self.scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+        scaled = self.scaler.fit_transform(values)
+        # frame as supervised learning
+        reframed = self.series_to_supervised(scaled, lag_input=self.n_hours, n_out=1)
+
+
+        #
+        #
+        # to_be_dropped = [i for i in range(values.shape[1], values.shape[1] * 2)]
+        # to_be_dropped.remove(label_column_index)
+        # # drop columns we don't want to predict
+        # reframed.drop(reframed.columns[to_be_dropped], axis=1, inplace=True)
+
+        return reframed
+
+    def series_to_supervised(self, data, lag_input=1, n_out=1, dropnan=True):
+        """
+        Frame a time series as a supervised learning dataset.
+        Arguments:
+            data: Sequence of observations as a list or NumPy array.
+        :parm lag_input: Number of lag observations as input (X).
+            n_out: Number of observations as output (y).
+            dropnan: Boolean whether or not to drop rows with NaN values.
+        Returns:
+            Pandas DataFrame of series framed for supervised learning.
+        """
+        n_vars = 1 if type(data) is list else data.shape[1]
+        df = pd.DataFrame(data)
+        cols, names = list(), list()
+        # input sequence (t-n, ... t-1)
+        for i in range(lag_input, 0, -1):
+            cols.append(df.shift(i))
+            names += [('var%d(t-%d)' % (j + 1, i)) for j in range(n_vars)]
+        # forecast sequence (t, t+1, ... t+n)
+        for i in range(0, n_out):
+            cols.append(df.shift(-i))
+            if i == 0:
+                names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
+            else:
+                names += [('var%d(t+%d)' % (j + 1, i)) for j in range(n_vars)]
+        # put it all together
+        agg = pd.concat(cols, axis=1)
+        agg.columns = names
+        # drop rows with NaN values
+        if dropnan:
+            agg.dropna(inplace=True)
+        return agg
+
+
+
+
+DATASET_PATH = module_path + "/notebook/dt_agg1hour.h5"
+
+
+lstmodel = lstmModel()
+
+start_date = '2015-11-10'
+end_date = '2015-11-25'
+
+dataset = pd.read_pickle(
+    DATASET_PATH)
+dataset = dataset[start_date:end_date]
+
+lstmodel.train(dataset=dataProc.create_features(dataset= dataset))
 
 
 
@@ -296,6 +462,3 @@ class visualizationModule():
             fig.autofmt_xdate()
         fig.tight_layout()
         return fig, ax
-
-
-

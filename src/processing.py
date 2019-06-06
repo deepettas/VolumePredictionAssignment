@@ -92,6 +92,7 @@ class dataProc():
             raise Exception('A positive integer of hours must be chosen')
         if datetime_column not in dataset.columns:
             raise Exception('Aggregation column name not in loaded dataset')
+        dataset['request_date'] = dataset['request_date'].apply(lambda x: pd.Timestamp(x))
 
         return pd.DataFrame(dataset.set_index(datetime_column).
                             resample('{0}h'.format(hours)).apply(np.sum))
@@ -110,6 +111,8 @@ class dataProc():
         if datetime_column not in dataset.columns:
             raise Exception('Aggregation column name not in loaded dataset')
 
+        dataset['request_date'] = dataset['request_date'].apply(lambda x: pd.Timestamp(x))
+
         return pd.DataFrame(dataset.set_index(datetime_column).
                             resample('{0}s'.format(minutes * 60)).apply(np.sum))
 
@@ -123,12 +126,16 @@ class dataProc():
         z = np.abs(stats.zscore(values))
         return np.where(z > threshold)
 
+    @staticmethod
+    def create_features(dataset: pd.DataFrame):
 
+        dataset.index = pd.to_datetime(dataset.index)
+        dataset['year'] = dataset.index.map(lambda date: date.year)
+        dataset['month_of_year'] = dataset.index.map(lambda date: date.month)
+        dataset['day_of_year'] = dataset.index.map(lambda date: date.dayofyear)
+        dataset['day_of_week'] = dataset.index.map(lambda date: date.weekday())
+        dataset['hour_of_day'] = dataset.index.map(lambda date: date.hour)
+        dataset['minute_of_hour'] = dataset.index.map(lambda date: date.minute)
 
-class mapTranslator():
-
-    def __init__(self, dataset: pd.DataFrame):
-        pass
-
-    def import_osm(self, ):
-        pass
+        dataset = dataset.drop(['year', 'day_of_year', 'minute_of_hour'], axis=1)
+        return dataset
