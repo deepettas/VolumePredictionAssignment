@@ -1,5 +1,7 @@
-# justbeatit
+# justbeatit 
 ---
+### Code Coverage: ~85%
+
 
 ### Setup:
 
