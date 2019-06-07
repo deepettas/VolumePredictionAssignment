@@ -29,7 +29,8 @@ Min max std dev (percentiles)
 
 weekday - Day of month
 
-
+Linux:
+sudo pip install -r requirements.txt
 
 
 =============================================================

@@ -6,10 +6,10 @@ import sys
 import numpy as np
 import seaborn as sns
 import statsmodels.api as sm
-from keras.layers import Dense
-from keras.layers import LSTM
-from keras.models import Sequential
 from matplotlib import pylab as plt
+from tensorflow.python.keras.layers import Dense
+from tensorflow.python.keras.layers import LSTM
+from tensorflow.python.keras.models import Sequential
 
 sns.set_context("notebook", font_scale=1.)
 sns.set_style("whitegrid")
