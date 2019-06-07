@@ -23,31 +23,53 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 
 
-# class volumePredictor():
-#
-#     def __init__(self):
-#         self.model = None
-#         self.dataset = None
-#
-#     def fetch_dataset(self, filepath: str):
-#         """
-#         Fetches a compiled dataset in pickle form.
-#         :param filepath: Relative Path to the dataset.
-#         :return:
-#         """
-#         self.dataset = pd.read_pickle(module_path + filepath)
-#
+class volumePredictor():
+
+    def __init__(self):
+        """
+        Mock function that will serve as a endpoint
+        """
+        self.model = None
+        self.dataset = None
+
+    def fetch_dataset(self, filepath: str):
+        """
+        Fetches a compiled dataset in pickle form.
+        :param filepath: Relative Path to the dataset.
+        :return: None
+        """
+        self.dataset = pd.read_pickle(module_path + filepath)
+
+    def load_model(self, model):
+        """
+        Loads a model in the predictor
+        :param model:
+        :return:
+        """
+        pass
+
+
+    def predict_next_hours(self, dataset, start_date, hours):
+        """
+        Predicts the next x hour volume based on a given dataset and a starting date.
+        :param dataset: The target dataset.
+        :param start_date: The starting date of the prediction
+        :param hours: The amount of hours
+        :return: Volume Prediction
+        """
+        pass
+
 
 
 class sarimaModel():
 
-    def __init__(self, ):
+    def __init__(self):
 
         self.model = None
         self.timestamp_range = None
         self.dataset = None
 
-    def train(self, dataset, timedelta):
+    def train(self, dataset: pd.DataFrame, evaluate: bool, timedelta=12):
         """
         Trains the model based on the dataset
         :param dataset: target dataset that is loaded in the model
@@ -66,7 +88,8 @@ class sarimaModel():
                                         enforce_invertibility=False)
         self.model = mod.fit()
 
-        self.evaluate_results(visualize=True)
+        if evaluate:
+            self.evaluate_results(visualize=True)
 
     def optimize_AIC(self, timedelta):
         """
@@ -120,7 +143,7 @@ class sarimaModel():
         Performs the prediction of given a starting date that is within the range of the trained model.
         :param start_date: Starting date of the prediction
         :param visualize: Boolean visualization option
-        :return:
+        :return: Predictions
         """
 
         if self.model == None:
@@ -142,11 +165,14 @@ class sarimaModel():
         if visualize:
             self.visualize_prediction(pred)
 
+        return pred
+
+
     def visualize_prediction(self, prediction):
         """
         Visualizes the prediction of the model
-        :param prediction:
-        :return:
+        :param prediction: Generated prediction
+        :return: None
         """
 
         pred_ci = prediction.conf_int()
@@ -163,13 +189,17 @@ class sarimaModel():
 
 class lstmModel():
 
-    def __init__(self, n_hours=1):
-
+    def __init__(self, perform_scale=True, n_hours=1):
+        """
+        :param perform_scale: Perform a feature scale, much needed.
+        :param n_hours: Lag window to look back when predicting
+        """
         self.model = None
         self.timestamp_range = None
         self.dataset = None
         self.n_features = None
         self.n_hours = n_hours
+        self.perform_scale = perform_scale
 
     def train(self, dataset: pd.DataFrame, evaluate: bool, epochs=100, batch_size=16):
         """
@@ -183,13 +213,13 @@ class lstmModel():
         # Extract the correct month to train from
         reframed = self.prep_dataset_many_to_one(dataset)
 
-        train_X, train_y, test_X, test_y = self.split_test_train(reframed=reframed, train_percentage=0.9)
+        train_X, train_y, test_X, test_y = self.split_test_train(reframed=reframed, train_percentage=0.8)
 
         self.model = self.create_network(train_X_shape=train_X.shape)
 
         # fit network
         history = self.model.fit(train_X, train_y, epochs=epochs, batch_size=batch_size,
-                                 validation_data=(test_X, test_y),
+                                 validation_data = (test_X, test_y),
                                  verbose=2,
                                  shuffle=False)
         if evaluate:
@@ -225,14 +255,18 @@ class lstmModel():
         yhat = self.model.predict(test_X)
         test_X = test_X.reshape((test_X.shape[0], self.n_hours * self.n_features))
         # invert scaling for forecast
-        print(test_X.shape, test_X)
+        # print(test_X.shape, test_X)
         inv_yhat = np.concatenate((yhat, test_X[:, -(self.n_features - 1):]), axis=1)
-        inv_yhat = self.scaler.inverse_transform(inv_yhat)
+
+        if self.perform_scale:
+            inv_yhat = self.scaler.inverse_transform(inv_yhat)
         inv_yhat = inv_yhat[:, 0]
         # invert scaling for actual
         test_y = test_y.reshape((len(test_y), 1))
         inv_y = np.concatenate((test_y, test_X[:, -(self.n_features - 1):]), axis=1)
-        inv_y = self.scaler.inverse_transform(inv_y)
+
+        if self.perform_scale:
+            inv_y = self.scaler.inverse_transform(inv_y)
         inv_y = inv_y[:, 0]
         # calculate RMSE
         rmse = math.sqrt(mean_squared_error(inv_y, inv_yhat))
@@ -302,11 +336,13 @@ class lstmModel():
 
         # ensure all data is float
         values = values.astype('float32')
-        # normalize features
-        self.scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
-        scaled = self.scaler.fit_transform(values)
+        if self.perform_scale:
+            # normalize features
+            self.scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+            values = self.scaler.fit_transform(values)
+
         # frame as supervised learning
-        reframed = self.series_to_supervised(scaled, lag_input=self.n_hours, n_out=1)
+        reframed = self.series_to_supervised(values, lag_input=self.n_hours, n_out=1)
 
         return reframed
 
