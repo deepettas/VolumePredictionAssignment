@@ -48,7 +48,6 @@ class volumePredictor():
         """
         pass
 
-
     def predict_next_hours(self, dataset, start_date, hours):
         """
         Predicts the next x hour volume based on a given dataset and a starting date.
@@ -58,7 +57,6 @@ class volumePredictor():
         :return: Volume Prediction
         """
         pass
-
 
 
 class sarimaModel():
@@ -167,7 +165,6 @@ class sarimaModel():
 
         return pred
 
-
     def visualize_prediction(self, prediction):
         """
         Visualizes the prediction of the model
@@ -219,7 +216,7 @@ class lstmModel():
 
         # fit network
         history = self.model.fit(train_X, train_y, epochs=epochs, batch_size=batch_size,
-                                 validation_data = (test_X, test_y),
+                                 validation_data=(test_X, test_y),
                                  verbose=2,
                                  shuffle=False)
         if evaluate:

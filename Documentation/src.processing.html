@@ -1,0 +1,87 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module src.processing</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong><a href="src.html"><font color="#ffffff">src</font></a>.processing</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/Users/noresources/Pycharm_projects/justbeatit/src/processing.py">/Users/noresources/Pycharm_projects/justbeatit/src/processing.py</a></font></td></tr></table>
+    <p></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="numpy.html">numpy</a><br>
+</td><td width="25%" valign=top><a href="pandas.html">pandas</a><br>
+</td><td width="25%" valign=top><a href="scipy.stats.html">scipy.stats</a><br>
+</td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ee77aa">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#ee77aa"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl>
+<dt><font face="helvetica, arial"><a href="builtins.html#object">builtins.object</a>
+</font></dt><dd>
+<dl>
+<dt><font face="helvetica, arial"><a href="src.processing.html#dataProc">dataProc</a>
+</font></dt></dl>
+</dd>
+</dl>
+ <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="dataProc">class <strong>dataProc</strong></a>(<a href="builtins.html#object">builtins.object</a>)</font></td></tr>
+    
+<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
+<td colspan=2><tt><a href="#dataProc">dataProc</a>(dataset:&nbsp;pandas.core.frame.DataFrame)<br>
+&nbsp;<br>
+<br>&nbsp;</tt></td></tr>
+<tr><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="dataProc-__init__"><strong>__init__</strong></a>(self, dataset: pandas.core.frame.DataFrame)</dt><dd><tt>Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</tt></dd></dl>
+
+<dl><dt><a name="dataProc-generate_time_aggregations"><strong>generate_time_aggregations</strong></a>(self, aggregation_column: str)</dt><dd><tt>Generate&nbsp;the&nbsp;lists&nbsp;of&nbsp;sums&nbsp;for&nbsp;quarter,&nbsp;hour,&nbsp;day&nbsp;and&nbsp;week<br>
+:return:</tt></dd></dl>
+
+<hr>
+Static methods defined here:<br>
+<dl><dt><a name="dataProc-aggregate_by_hours"><strong>aggregate_by_hours</strong></a>(dataset: pandas.core.frame.DataFrame, datetime_column: str, hours: int)</dt><dd><tt>Aggregates&nbsp;the&nbsp;input&nbsp;dataset&nbsp;by&nbsp;hour<br>
+:param&nbsp;dataset:&nbsp;Input&nbsp;dataset<br>
+:param&nbsp;datetime_column:&nbsp;Timestamp&nbsp;column&nbsp;name<br>
+:return:</tt></dd></dl>
+
+<dl><dt><a name="dataProc-aggregate_by_mins"><strong>aggregate_by_mins</strong></a>(dataset: pandas.core.frame.DataFrame, datetime_column: str, minutes: int)</dt><dd><tt>Aggregates&nbsp;the&nbsp;input&nbsp;dataset&nbsp;by&nbsp;15&nbsp;minutes<br>
+:param&nbsp;dataset:&nbsp;Input&nbsp;dataset<br>
+:param&nbsp;datetime_column:&nbsp;Timestamp&nbsp;column&nbsp;name<br>
+:return:</tt></dd></dl>
+
+<dl><dt><a name="dataProc-create_features"><strong>create_features</strong></a>(dataset: pandas.core.frame.DataFrame)</dt></dl>
+
+<dl><dt><a name="dataProc-time_to_timestamp"><strong>time_to_timestamp</strong></a>(dataset: pandas.core.frame.DataFrame, datetime_column: str)</dt><dd><tt>Converts&nbsp;a&nbsp;dataset's&nbsp;datetime&nbsp;string&nbsp;into&nbsp;a&nbsp;pandas&nbsp;timestamp<br>
+:param&nbsp;dataset:&nbsp;input&nbsp;dataset<br>
+:param&nbsp;datetime_column:&nbsp;name&nbsp;of&nbsp;target&nbsp;column<br>
+:return:&nbsp;converted&nbsp;dataset</tt></dd></dl>
+
+<dl><dt><a name="dataProc-z_detect_outliers"><strong>z_detect_outliers</strong></a>(values: list, threshold: int)</dt><dd><tt>Generates&nbsp;the&nbsp;positions&nbsp;of&nbsp;the&nbsp;values&nbsp;that&nbsp;have&nbsp;a&nbsp;z&nbsp;index&nbsp;higher&nbsp;than&nbsp;a&nbsp;given&nbsp;threshold<br>
+:param&nbsp;threshold:&nbsp;Allowed&nbsp;Threshold<br>
+:return:&nbsp;outlier&nbsp;positions</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table></td></tr></table>
+</body></html>
