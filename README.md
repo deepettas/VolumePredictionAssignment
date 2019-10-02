@@ -1,4 +1,4 @@
-# Volume Stream Prediction 
+# Volume Stream Prediction - Tech: LSTM & SARIMA
 ---
 ### Code Coverage: ~85%
 
